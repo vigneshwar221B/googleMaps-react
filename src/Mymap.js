@@ -1,6 +1,7 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Map, GoogleApiWrapper, Marker } from 'google-maps-react'
 import Geocode from 'react-geocode'
+import Geosuggest from 'react-geosuggest'
 
 // set Google Maps Geocoding API for purposes of quota management. Its optional but recommended.
 Geocode.setApiKey('AIzaSyBRMxmWyTA2yeYIA6kh6aUWIKBPR6Xm8mw')
@@ -12,75 +13,80 @@ Geocode.setLanguage('en')
 Geocode.enableDebug()
 
 const Mymap = props => {
+	const [state, setstate] = useState({
+		lat: '',
+		lng: ''
+	})
+
+	useEffect(() => {
+		navigator.geolocation.getCurrentPosition(position => {
+			const { latitude, longitude } = position.coords
+
+			console.log(latitude, longitude)
+			setstate({ lat: latitude, lng: longitude })
+		})
+	})
+
 	const mapStyles = {
 		width: '100%',
 		height: '70vh'
 	}
 
-	const [state, setstate] = useState({
-		markers: [
-			{
-				name: 'Current position',
-				position: { lat: props.data.lat, lng: props.data.lng }
-			}
-		]
-	})
+	const [sname, setsname] = useState('')
 
-	const [name, setname] = useState('')
-
-	const onMarkerDragEnd = (coord, index) => {
+	const onMarkerDragEnd = coord => {
+		//console.log(index)
 		const { latLng } = coord
 		const lat = latLng.lat()
 		const lng = latLng.lng()
-
-		setstate(prevState => {
-			console.log(state.markers[0].position)
-			const markers = [...state.markers]
-			markers[index] = { ...state.markers[index], position: { lat, lng } }
-			return { markers }
+		// console.log(state.markers[0].position)
+		console.log(lat, lng)
+		setstate({
+			lat,
+			lng
 		})
 	}
 
-	const onsubmit = () => {
-		console.log('submitted')
-		// Get latidude & longitude from address.
-		Geocode.fromAddress(name).then(
-			response => {
-				const { lat, lng } = response.results[0].geometry.location
-				console.log(lat, lng)
-			},
-			error => {
-				console.error(error)
-			}
-		)
+	
+	const onschange = e => {
+		setsname(e)
 	}
 
-	const onchange = e => {
-		setname(e.target.value)
+	const mapClicked = (mapProps, map, clickEvent) => {
+		const lat = clickEvent.latLng.lat()
+		const lng = clickEvent.latLng.lng()
+
+		setstate({ lat, lng })
+	}
+
+	const showRes = e => {
+		console.log(e)
+		setstate({ lat: e.location.lat, lng: e.location.lng })
 	}
 
 	return (
 		<>
-			<input type='text' value={name} onChange={onchange}></input>
+			<Geosuggest
+				value={sname}
+				onChange={onschange}
+				onSuggestSelect={showRes}
+			/>
 
 			<Map
 				google={props.google}
 				zoom={15}
 				style={mapStyles}
-				initialCenter={{ lat: props.data.lat, lng: props.data.lng }}
+				center={state}
+				initialCenter={state}
+				onClick={mapClicked}
 			>
-				{state.markers.map((marker, index) => (
-					<Marker
-						key={index}
-						position={marker.position}
-						draggable={true}
-						onDragend={(t, map, coord) => onMarkerDragEnd(coord, index)}
-						name={marker.name}
-					/>
-				))}
+				<Marker
+					position={state}
+					draggable={true}
+					onDragend={(t, map, coord) => onMarkerDragEnd(coord)}
+					
+				/>
 			</Map>
-
-			<button onClick={onsubmit}>submit</button>
 		</>
 	)
 }
